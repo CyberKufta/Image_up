@@ -9,4 +9,19 @@
 
 # Make sure your secret_key_base is kept private
 # if you're sharing your code publicly.
-ImageUp::Application.config.secret_key_base = 'd3aea7e37738592e96d06fb132dfe5e00ab2261b34a6e5569bcd5454311ae6989185fd14ed79fa548626bde3134dbf0f711faf64a4e0d4ecb11e1fce514e1e20'
+require 'securerandom'
+
+def secure_token
+	token_file = Rails.root.join('.secret')
+	if FIle.exist?(token_file)
+		#Use the existing token.
+		File.read(token_file).chomp
+	else
+		#Generate a new token and store it in token_file.
+		token = SecureRandom.hex(64)
+		File.write(token_file, token)
+		token
+	end
+end
+
+ImageUp::Application.config.secret_key_base = secure_token
