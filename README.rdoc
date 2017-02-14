@@ -26,3 +26,203 @@ Things you may want to cover:
 
 Please feel free to use a different markup language if you do not plan to run
 <tt>rake doc:app</tt>.
+
+
+#!/bin/bash
+
+ 
+
+keysize=2048
+
+CACERTBASE=cacerts
+
+SCEP_URL=http://sit-dbca.tools.intranet.db.com/scep-test/scep-testing
+
+ 
+
+# sscepname is the CN for the host you are running sscep on
+
+sscepname=mnemonic.de.db.com:scep
+
+sscepkey=sscep.key
+
+sscepcsr=sscep.csr
+
+sscepcert=sscep.pem
+
+ 
+
+ 
+
+############################################################
+
+# Create the CSR and Cert for use by sscep itself 
+
+# Note: You'll need to submit the CSR to our PKI and download the cert
+manually
+
+############################################################
+
+ 
+
+# clientname is just the shortname for the CSR you upload with sscep
+
+clientname=scep-client
+
+ 
+
+ 
+
+sscepsubj="
+
+C=DE
+
+ST=
+
+O=Test
+
+localityName=Test
+
+commonName=$sscepname
+
+emailAddress=sscep@openxpki.org
+
+"
+
+ 
+
+sscepsubj=$(echo -n "$sscepsubj" | tr "\n"
+"/")
+
+ 
+
+if [ ! -f $sscepkey ]; then
+
+    openssl genrsa -out $sscepkey $keysize
+
+fi
+
+ 
+
+if [ ! -f $sscepcsr ]; then
+
+    openssl req -new -sha256 -key $sscepkey -out
+$sscepcsr
+
+fi
+
+ 
+
+if [ ! -f $sscepcert ]; then
+
+    cat <<EOF
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+To continue, upload the $sscepcsr and save the issued PEM
+
+certificate in $sscepcert.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+EOF
+
+    exit
+
+fi
+
+ 
+
+ 
+
+############################################################
+
+# Create the client CSR 
+
+############################################################
+
+ 
+
+clientsubj="
+
+C=DE
+
+ST=
+
+O=Test
+
+localityName=Test
+
+commonName=$clientname.openxpki.org
+
+emailAddress=$clientname@openxpki.org
+
+"
+
+ 
+
+clientsubj=$(echo -n "$clientsubj" | tr "\n"
+"/")
+
+ 
+
+if [ ! -f $clientname.key ]; then
+
+    openssl genrsa -out $clientname.key $keysize
+
+fi
+
+ 
+
+if [ ! -f $clientname.csr ]; then
+
+    openssl req -new -sha256 -batch -subj "$clientsubj"
+\
+
+        -key $clientname.key \
+
+        -out $clientname.csr
+
+fi
+
+ 
+
+############################################################
+
+# Submit the client CSR using SCEP
+
+############################################################
+
+ 
+
+sscep getca -u $SCEP_URL -c $CACERTBASE
+
+ 
+
+if [ ! -r "$CACERTBASE" -a ! -r "$CACERTBASE-0" ];
+then
+
+    echo "ERROR running getca" 1>&2
+
+    exit 1
+
+fi
+
+ 
+
+sscep enroll -u $SCEP_URL -c "$CACERTBASE-0" \
+
+    -r "$clientname.csr" \
+
+    -k "$sscepkey" \
+
+    -K "$sscepkey" \
+
+    -O "$sscepcert" \
+
+    -l $clientname.pem \
+
+    -n 1
+
+ 
+
